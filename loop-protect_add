@@ -1,7 +1,6 @@
 #не смог распарсить колличесво интерфейсов
 
 from netmiko import ConnectHandler
-import re
 
 
 with open("/NETWORK_HP/iplist") as f:
