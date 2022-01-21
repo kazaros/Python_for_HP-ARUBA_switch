@@ -41,6 +41,7 @@ for devices in devices_list:
        print ('Interface_8')
        numbers_ports_All = str(8)
        numbers_ports = int(9)
+    print('configure')
     print('loop-protect disable-timer 900')
     print('loop-protect 1-'+numbers_ports_All+' receiver-action send-recv-dis')
     for i in range(1, numbers_ports):
