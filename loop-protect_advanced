@@ -27,23 +27,34 @@ for devices in devices_list:
 #    print (lines)
     if lines > 55:
        print ('Interface_48')
-       numbers_ports_All = str(48)
+       numbers_ports_cooper = str(48)
+       numbers_ports_optic = str('49-52')
        numbers_ports = int(49)
     elif lines > 31:
        print ('Interface_24')
-       numbers_ports_All = str(24)
+       numbers_ports_cooper = str(24)
+       numbers_ports_optic = str('25-28')
        numbers_ports = int(25)
     elif lines > 19:
        print ('Interface_16')
-       numbers_ports_All = str(16)
+       numbers_ports_cooper = str(16)
+       numbers_ports_optic = str('17-18')
        numbers_ports = int(17)
     elif lines > 12:
        print ('Interface_8')
-       numbers_ports_All = str(8)
+       numbers_ports_cooper = str(8)
+       numbers_ports_optic = str('9-10')
        numbers_ports = int(9)
+    Version_switch = net_connect.send_config_set("loop-protect 3 receiver-action send-recv-dis")
+    Version_switch1 = Version_switch.find('Invalid input: send-recv-dis')
     print('configure')
+    print('no spanning-tree')
     print('loop-protect disable-timer 900')
-    print('loop-protect 1-'+numbers_ports_All+' receiver-action send-recv-dis')
+    if Version_switch1 == -1:
+        print('loop-protect 1-'+numbers_ports_cooper+' receiver-action send-recv-dis')
+    else:
+        print('loop-protect 1-'+numbers_ports_cooper+' receiver-action send-disable')
+    print('loop-protect '+numbers_ports_optic+' receiver-action no-disable')
     for i in range(1, numbers_ports):
        ports = str(i)
        output = net_connect.send_command('show lldp info remote-device ethernet '+ports)
@@ -56,3 +67,4 @@ for devices in devices_list:
                  print('loop-protect '+ports+' receiver-action no-disable')
        except Exception:
            pass
+    net_connect.disconnect()
