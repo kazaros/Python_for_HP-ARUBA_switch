@@ -1,0 +1,56 @@
+from netmiko import ConnectHandler
+from paramiko.ssh_exception import SSHException
+
+
+with open("/NETWORK_HP/iplist") as f:
+    devices_list = f.read().splitlines()
+
+for devices in devices_list:
+    ip_address_of_device = devices
+    HP = {
+        'device_type':'hp_procurve',
+        'ip':ip_address_of_device,
+        'username':'XXXXXXXXXXX',
+        'password':'XXXXXXXXXXXX',
+    }
+    try:
+        net_connect = ConnectHandler(**HP)
+        print('conncet to ',devices)
+        output = net_connect.send_command("show int brief")
+        lines = output.count('\n')
+#        print (lines)
+        if lines > 55:
+           print ('Interface_48')
+           numbers_ports_2530 = str('1-52')
+           numbers_ports_2510 = str('1-52')
+        elif lines > 30:
+           print ('Interface_24')
+           numbers_ports_2530 = str('1-28')
+           numbers_ports_2510 = str('1-26')
+        elif lines > 19:
+           print ('Interface_16')
+           numbers_ports_2530 = str('1-18')
+           numbers_ports_2510 = str('1-18')
+        elif lines > 12:
+           print ('Interface_8')
+           numbers_ports_2530 = str('1-10')
+           numbers_ports_2510 = str('1-10')
+        Version_switch = net_connect.send_config_set("loop-protect 3 receiver-action send-recv-dis")
+        Version_switch1 = Version_switch.find('Invalid input: send-recv-dis')
+#        print('configure')
+        if Version_switch1 == -1:
+            net_connect.send_config_set('configure')
+            net_connect.send_config_set('interface '+numbers_ports_2530+' rate-limit bcast in kbps 10000')
+            net_connect.send_config_set('interface '+numbers_ports_2530+' rate-limit mcast in kbps 10000')
+            net_connect.send_config_set('interface '+numbers_ports_2530+' rate-limit unknown-unicast in kbps 10000')
+            print('configure succesful HP 2530 ',devices)
+        else:
+            net_connect.send_config_set('configure')
+            net_connect.send_config_set('interface '+numbers_ports_2510+' rate-limit bcast in kbps 10000')
+            net_connect.send_config_set('interface '+numbers_ports_2510+' rate-limit mcast in kbps 10000')
+            net_connect.send_config_set('interface '+numbers_ports_2510+' rate-limit unknown-unicast in kbps 10000')
+            print('configure succesful HP 2510 ',devices)
+        net_connect.disconnect()
+    except SSHException:
+        print('-------------- CAN NOT CONNECT TO ',devices)
+        continue
