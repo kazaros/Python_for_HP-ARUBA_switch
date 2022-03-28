@@ -43,13 +43,21 @@ for devices in devices_list:
             net_connect.send_config_set('interface '+numbers_ports_2530+' rate-limit bcast in kbps 10000')
             net_connect.send_config_set('interface '+numbers_ports_2530+' rate-limit mcast in kbps 10000')
             net_connect.send_config_set('interface '+numbers_ports_2530+' rate-limit unknown-unicast in kbps 10000')
-            print('configure succesful HP 2530 ',devices)
+            output1 = net_connect.send_command("show running-config interface ethernet 5")
+            if (output1.find('bcast') != -1) and (output1.find('mcast') != -1) and (output1.find('unknown-unicast') != -1):  
+                print('configure succesful HP 2530 ',devices)
+            else:
+                print('----------------ALARM--------',devices)
         else:
             net_connect.send_config_set('configure')
             net_connect.send_config_set('interface '+numbers_ports_2510+' rate-limit bcast in kbps 10000')
             net_connect.send_config_set('interface '+numbers_ports_2510+' rate-limit mcast in kbps 10000')
             net_connect.send_config_set('interface '+numbers_ports_2510+' rate-limit unknown-unicast in kbps 10000')
-            print('configure succesful HP 2510 ',devices)
+            output1 = net_connect.send_command("show running-config interface ethernet 5")
+            if (output1.find('bcast') != -1) and (output1.find('mcast') != -1) and (output1.find('unknown-unicast') != -1):  
+                print('configure succesful HP 2510 ',devices)
+            else:
+                print('----------------ALARM--------',devices)
         net_connect.disconnect()
     except SSHException:
         print('-------------- CAN NOT CONNECT TO ',devices)
