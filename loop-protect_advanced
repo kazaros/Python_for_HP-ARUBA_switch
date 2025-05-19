@@ -62,7 +62,7 @@ for devices in devices_list:
         print('loop-protect '+numbers_ports_optic_2510+' receiver-action no-disable')
     for i in range(1, numbers_ports):
        ports = str(i)
-       output = net_connect.send_command('show lldp info remote-device ethernet '+ports)
+       output = net_connect.send_command('show lldp info remote-device ethernet '+ports, expect_string=r"#")
        try:
           Neighbors_parsed = parse_output(platform="hp_procurve", command='show lldp info remote-device ethernet '+ports, data=output)
           for row in Neighbors_parsed:
