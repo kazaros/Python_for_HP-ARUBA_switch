@@ -72,4 +72,6 @@ for devices in devices_list:
                  print('loop-protect '+ports+' receiver-action no-disable')
        except Exception:
            pass
+    print('exit')
+    print('write memory')
     net_connect.disconnect()
