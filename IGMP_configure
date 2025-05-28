@@ -6,7 +6,7 @@ import json
 
 
 
-with open("/home/sysprep/NETWORK_HP/iplist") as f:
+with open("/NETWORK_HP/iplist") as f:
     devices_list = f.read().splitlines()
 
 for devices in devices_list:
