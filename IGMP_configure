@@ -23,7 +23,6 @@ for devices in devices_list:
     lines = vlan_output.count('\n')
     vlan_parsed = parse_output(platform="hp_procurve", command="show vlan", data=vlan_output)
     net_connect.send_config_set('configure')
-#    print(vlan_parsed)
     print('configure')
     for row in vlan_parsed:
         op = json.dumps(row)
