@@ -1,0 +1,59 @@
+from netmiko import ConnectHandler
+import textfsm
+import re
+from ntc_templates.parse import parse_output
+import json
+
+
+with open("/home/sysprep/NETWORK_HP/iplist") as f:
+    devices_list = f.read().splitlines()
+
+for devices in devices_list:
+    ip_address_of_device = devices
+    HP = {
+        'device_type':'hp_procurve',
+        'ip':ip_address_of_device,
+        'username':'admin',
+        'password':'password',
+    }
+
+    try:
+        net_connect = ConnectHandler(**HP)
+        print('Connected to', devices)
+
+        output25XX = net_connect.send_command("show lldp info local-device")
+        Version_parsed = parse_output(platform="hp_procurve", command='show lldp info local-device', data=output25XX)
+
+        model_25XX = []
+        for row in Version_parsed:
+            op = json.dumps(row)
+            regex_25XX = re.findall(r'25\d{2}', op)
+            if regex_25XX:
+                model_25XX.extend(regex_25XX)
+
+        output6XXX = net_connect.send_command("show system")
+        Version6XXX_parsed = parse_output(platform="aruba_aoscx", command='show system6XX', data=output6XXX)
+
+        model_6XXX = []
+        for row in Version6XXX_parsed:
+            op = json.dumps(row)
+            regex_6XXX = re.findall(r'\b6[023]?00M?\b', op)
+            if regex_6XXX:
+                model_6XXX.extend(regex_6XXX)
+
+
+        final_model = None
+
+        if model_6XXX:
+            final_model = model_6XXX[0]
+        elif model_25XX:
+            final_model = model_25XX[0]
+
+        if final_model:
+            print(f"{ip_address_of_device} > {final_model}")
+        else:
+            print(f"{ip_address_of_device} > ????????????????")
+        net_connect.disconnect()
+
+    except Exception as e:
+        print(f"ERROR {devices}: {e}")
