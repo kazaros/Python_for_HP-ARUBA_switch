@@ -22,6 +22,8 @@ for devices in devices_list:
     }
     net_connect = ConnectHandler(**HP)
     print(' _______________________________________________________________ ')
+
+#detect number ports
     print('conncet to ',devices)
     output = net_connect.send_command("show int brief")
     lines = output.count('\n')
@@ -52,7 +54,7 @@ for devices in devices_list:
        numbers_ports_optic_2510 = str('9-10')
        numbers_ports = int(9)
 
-
+#detect switch model
     output25XX = net_connect.send_command("show lldp info local-device")
     Version_parsed = parse_output(platform="hp_procurve", command='show lldp info local-device', data=output25XX)
     model_25XX = []
@@ -70,6 +72,8 @@ for devices in devices_list:
         if regex_6XXX:
             model_6XXX.extend(regex_6XXX)
     final_model = None
+
+#generate configuration lines
     if model_6XXX:
         final_model = model_6XXX[0]
         print('switch model ',final_model)
