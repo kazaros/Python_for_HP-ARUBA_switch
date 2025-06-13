@@ -1,6 +1,6 @@
 # скрипт только генерит строки конфига (но легко докрутить, чтобы сам настраивал)
 # - порты в сторону ПК/принтеров/WiFi и прочих оконечных устройств будут выключаться
-# - порты в сторону других коммутаторов будут только логгировать о петле
+# - порты в сторону других коммутаторов (кто по LLDP ответит как switch, bridge, router, aruba) будут только логгировать о петле
 
 from netmiko import ConnectHandler
 import textfsm
@@ -9,7 +9,7 @@ from ntc_templates.parse import parse_output
 import json
 
 
-with open("/NETWORK_TEST/iplist") as f:
+with open("/home/sysprep/NETWORK_HP/iplist") as f:
     devices_list = f.read().splitlines()
 
 for devices in devices_list:
@@ -17,23 +17,25 @@ for devices in devices_list:
     HP = {
         'device_type':'hp_procurve',
         'ip':ip_address_of_device,
-        'username':'111111111',
-        'password':'11111111111',
+        'username':'admin',
+        'password':'password',
     }
     net_connect = ConnectHandler(**HP)
+    print(' _______________________________________________________________ ')
     print('conncet to ',devices)
     output = net_connect.send_command("show int brief")
     lines = output.count('\n')
-#    print (lines)
     if lines > 55:
        print ('Interface_48')
        numbers_ports_cooper = str(48)
+       numbers_ports_optic_6XXX = str('1/1/49-1/1/52')
        numbers_ports_optic_2530 = str('49-52')
        numbers_ports_optic_2510 = str('49-52')
        numbers_ports = int(49)
     elif lines > 30:
        print ('Interface_24')
        numbers_ports_cooper = str(24)
+       numbers_ports_optic_6XXX = str('1/1/24-1/1/28')
        numbers_ports_optic_2530 = str('25-28')
        numbers_ports_optic_2510 = str('25-26')
        numbers_ports = int(25)
@@ -49,29 +51,73 @@ for devices in devices_list:
        numbers_ports_optic_2530 = str('9-10')
        numbers_ports_optic_2510 = str('9-10')
        numbers_ports = int(9)
-    Version_switch = net_connect.send_config_set("loop-protect 3 receiver-action send-recv-dis")
-    Version_switch1 = Version_switch.find('Invalid input: send-recv-dis')
-    print('configure')
-    print('no spanning-tree')
-    print('loop-protect disable-timer 900')
-    if Version_switch1 == -1:
-        print('loop-protect 1-'+numbers_ports_cooper+' receiver-action send-recv-dis')
-        print('loop-protect '+numbers_ports_optic_2530+' receiver-action no-disable')
-    else:
-        print('loop-protect 1-'+numbers_ports_cooper+' receiver-action send-disable')
-        print('loop-protect '+numbers_ports_optic_2510+' receiver-action no-disable')
-    for i in range(1, numbers_ports):
-       ports = str(i)
-       output = net_connect.send_command('show lldp info remote-device ethernet '+ports, expect_string=r"#")
-       try:
-          Neighbors_parsed = parse_output(platform="hp_procurve", command='show lldp info remote-device ethernet '+ports, data=output)
-          for row in Neighbors_parsed:
-              op = json.dumps(row)
-              regex_num = re.findall(r'system_descr+.{2,}Switch', op)
-              if regex_num != []:
-                 print('loop-protect '+ports+' receiver-action no-disable')
-       except Exception:
-           pass
-    print('exit')
-    print('write memory')
+
+
+    output25XX = net_connect.send_command("show lldp info local-device")
+    Version_parsed = parse_output(platform="hp_procurve", command='show lldp info local-device', data=output25XX)
+    model_25XX = []
+    for row in Version_parsed:
+        op = json.dumps(row)
+        regex_25XX = re.findall(r'25\d{2}', op)
+        if regex_25XX:
+            model_25XX.extend(regex_25XX)
+    output6XXX = net_connect.send_command("show system")
+    Version6XXX_parsed = parse_output(platform="aruba_aoscx", command='show system6XX', data=output6XXX)
+    model_6XXX = []
+    for row in Version6XXX_parsed:
+        op = json.dumps(row)
+        regex_6XXX = re.findall(r'\b6[023]?00M?\b', op)
+        if regex_6XXX:
+            model_6XXX.extend(regex_6XXX)
+    final_model = None
+    if model_6XXX:
+        final_model = model_6XXX[0]
+        print('switch model ',final_model)
+        print('configure')
+        print('no spanning-tree')
+        print('int 1/1/1-1/1/'+numbers_ports_cooper)
+        print('loop-protect action tx-rx-disable')
+        print('int '+numbers_ports_optic_6XXX)
+        print('loop-protect action do-not-disable')
+        for i in range(1, numbers_ports):
+           port = str(i)
+           try:
+              output = net_connect.send_command(f"show lldp neighbor 1/1/{port}", expect_string=r"#")
+              keywords = ['switch', 'aruba', 'bridge', 'router']
+              pattern = r'\b(?:' + '|'.join(keywords) + r')\b'
+              matches = re.findall(pattern, output, re.IGNORECASE)
+              if matches:
+                  print(f"int 1/1/{port}")
+                  print("loop-protect action do-not-disable")
+           except Exception:
+               pass
+
+    elif model_25XX:
+        final_model = model_25XX[0]
+        print('switch model ',final_model)
+        print('configure')
+        print('no spanning-tree')
+        print('loop-protect disable-timer 900') #loop-protect re-enable-timer 900
+        Version_switch = net_connect.send_config_set("loop-protect 3 receiver-action send-recv-dis")
+        Version_switch1 = Version_switch.find('Invalid input: send-recv-dis')
+        if Version_switch1 == -1:
+            print('loop-protect 1-'+numbers_ports_cooper+' receiver-action send-recv-dis')
+            print('loop-protect '+numbers_ports_optic_2530+' receiver-action no-disable')
+        else:
+            print('loop-protect 1-'+numbers_ports_cooper+' receiver-action send-disable')
+            print('loop-protect '+numbers_ports_optic_2510+' receiver-action no-disable')
+        for i in range(1, numbers_ports):
+           ports = str(i)
+           output = net_connect.send_command('show lldp info remote-device ethernet '+ports, expect_string=r"#")
+           try:
+              Neighbors_parsed = parse_output(platform="hp_procurve", command='show lldp info remote-device ethernet '+ports, data=output)
+              for row in Neighbors_parsed:
+                  op = json.dumps(row)
+                  regex_num = re.findall(r'neighbor_description+.{2,}Switch', op)
+                  if regex_num != []:
+                     print('loop-protect '+ports+' receiver-action no-disable')
+           except Exception:
+               pass
+        print('exit')
+        print('write memory')
     net_connect.disconnect()
