@@ -1,0 +1,53 @@
+from netmiko import ConnectHandler
+import textfsm
+import re
+from ntc_templates.parse import parse_output
+
+# List of target VLANs to check
+TARGET_VLANS = ['1', '52', '54', '170']
+
+# Read device IPs from file
+with open("/home/sysprep/NETWORK_HP/iplist") as f:
+    devices_list = f.read().splitlines()
+
+for device_ip in devices_list:
+    try:
+        # Device connection parameters
+        device = {
+            'device_type': 'hp_procurve',
+            'ip': device_ip,
+            'username': 'admin',
+            'password': 'password',
+        }
+        
+        print(f"\nConnecting to {device_ip}...")
+        net_connect = ConnectHandler(**device)
+        
+        # Get VLAN information from device
+        vlan_output = net_connect.send_command("show vlan")
+        vlan_parsed = parse_output(platform="hp_procurve", command="show vlan", data=vlan_output)
+        
+        # Find which target VLANs exist on this device
+        found_vlans = []
+        for row in vlan_parsed:
+            vlan_id = str(row['vlan_id'])
+            if vlan_id in TARGET_VLANS:
+                found_vlans.append(vlan_id)
+        
+        # If target VLANs found, print configuration commands
+        if found_vlans:
+            print(f"Found target VLANs: {', '.join(found_vlans)}")
+            net_connect.send_config_set('configure')
+            for vlan in found_vlans:
+                print(f"vlan {vlan} ip igmp")
+                print(f"no vlan {vlan} ip igmp querier")
+            print("exit")
+            print("write memory")
+        else:
+            print("No target VLANs found on this device")
+            
+    except Exception as e:
+        print(f"Error processing device {device_ip}: {str(e)}")
+    finally:
+        if 'net_connect' in locals():
+            net_connect.disconnect()
